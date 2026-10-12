@@ -257,4 +257,4 @@ gradebot/
 
 ## License
 
-Created for the FDE Offline Exercise. Add a license if you intend to distribute the project publicly.
+Created for the FDE Offline Exercise.
