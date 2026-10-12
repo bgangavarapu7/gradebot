@@ -1,0 +1,55 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: gradebot
+      POSTGRES_USER: gradebot
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?copy .env.example to .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Applied once, when the volume is first initialised. After changing either file,
+      # run `make reset` (drops the volume) to apply it again.
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./db/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gradebot -d gradebot"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  app:
+    build:
+      context: .
+      target: runtime
+    environment:
+      DATABASE_URL: postgresql://gradebot:${POSTGRES_PASSWORD}@db:5432/gradebot
+      PROMPT_VERSION: ${PROMPT_VERSION:-grade_v1}
+      LLM_TIMEOUT_S: ${LLM_TIMEOUT_S:-10}
+      LLM_BACKOFF_BASE_S: ${LLM_BACKOFF_BASE_S:-0.2}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Not started by `up`; run with `make test` / `make eval`.
+  test:
+    profiles: ["tools"]
+    build:
+      context: .
+      target: dev
+    environment:
+      DATABASE_URL: postgresql://gradebot:${POSTGRES_PASSWORD}@db:5432/gradebot
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:

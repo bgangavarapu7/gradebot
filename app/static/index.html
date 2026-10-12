@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GradeBot</title>
+<style>
+  :root {
+    --bg: #f5f6f8; --card: #ffffff; --text: #1c2330; --muted: #667085; --line: #e3e6eb;
+    --accent: #2f5fd0; --accent-text: #ffffff;
+    --good: #1a7f4b; --good-bg: #e3f5ea; --mid: #9a6400; --mid-bg: #fdf0d3;
+    --bad: #b3261e; --bad-bg: #fde7e5; --none-bg: #eceef2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151b; --card: #1b2029; --text: #e7eaf0; --muted: #9aa4b5; --line: #2c3340;
+      --accent: #7da2ff; --accent-text: #0d1320;
+      --good: #6dd49c; --good-bg: #163325; --mid: #f0c060; --mid-bg: #3a2e12;
+      --bad: #ff8f87; --bad-bg: #3d1b19; --none-bg: #262c37;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 1040px; margin: 0 auto; padding: 24px 16px 64px; }
+  header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 16px; margin-bottom: 20px; }
+  h1 { font-size: 24px; margin: 0; }
+  header p { margin: 0; color: var(--muted); }
+  #health { margin-left: auto; font-size: 13px; color: var(--muted); }
+  #health::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+                    background: var(--muted); margin-right: 6px; }
+  #health.ok::before { background: var(--good); }
+  #health.down::before { background: var(--bad); }
+
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .stat { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .stat b { display: block; font-size: 22px; }
+  .stat span { color: var(--muted); font-size: 13px; }
+
+  .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 16px; }
+  select, button { font: inherit; border-radius: 8px; border: 1px solid var(--line); padding: 7px 12px;
+                   background: var(--card); color: var(--text); }
+  button { cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
+  button:disabled { opacity: .55; cursor: default; }
+  #message { color: var(--bad); font-size: 14px; }
+
+  .question { background: var(--card); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 18px; overflow: hidden; }
+  .question > .head { padding: 14px 16px; border-bottom: 1px solid var(--line); }
+  .question h2 { font-size: 17px; margin: 0 0 2px; }
+  .question .meta { color: var(--muted); font-size: 13px; }
+  details { margin-top: 8px; font-size: 14px; }
+  summary { cursor: pointer; color: var(--accent); }
+  pre { white-space: pre-wrap; margin: 6px 0 0; font: inherit; color: var(--muted); }
+
+  .row { display: grid; grid-template-columns: 90px minmax(0, 1.3fr) minmax(0, 1fr) 96px; gap: 14px;
+         padding: 14px 16px; border-bottom: 1px solid var(--line); align-items: start; }
+  .row:last-child { border-bottom: 0; }
+  .student { font-weight: 600; }
+  .student small { display: block; font-weight: 400; color: var(--muted); }
+  .answer { overflow-wrap: anywhere; }
+  .answer.clamped { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+  .answer.empty { color: var(--muted); font-style: italic; }
+  .more { border: 0; background: none; color: var(--accent); padding: 0; font-size: 13px; }
+  .badge { display: inline-block; border-radius: 999px; padding: 2px 10px; font-weight: 700; font-size: 14px;
+           background: var(--none-bg); color: var(--muted); }
+  .badge.good { background: var(--good-bg); color: var(--good); }
+  .badge.mid { background: var(--mid-bg); color: var(--mid); }
+  .badge.bad { background: var(--bad-bg); color: var(--bad); }
+  .feedback { margin: 6px 0 2px; }
+  .audit { color: var(--muted); font-size: 12.5px; }
+  .action { text-align: right; }
+  .empty-note { padding: 14px 16px; color: var(--muted); }
+  .head-row { display: flex; gap: 12px; align-items: flex-start; justify-content: space-between; }
+  .spacer { flex: 1; }
+
+  dialog { border: 1px solid var(--line); border-radius: 12px; background: var(--card); color: var(--text);
+           padding: 20px; width: min(560px, calc(100vw - 32px)); }
+  dialog::backdrop { background: rgba(0, 0, 0, .45); }
+  dialog h2 { margin: 0 0 14px; font-size: 18px; }
+  dialog label { display: block; font-weight: 600; margin: 12px 0 4px; }
+  dialog .hint { color: var(--muted); font-size: 13px; font-weight: 400; margin: 2px 0 4px; }
+  dialog input, dialog textarea, dialog select { width: 100%; font: inherit; color: var(--text);
+           background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+  dialog textarea { resize: vertical; }
+  dialog .buttons { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+  dialog .error { color: var(--bad); font-size: 14px; margin-top: 10px; min-height: 1.2em; }
+  @media (max-width: 720px) {
+    .row { grid-template-columns: 1fr; gap: 8px; }
+    .action { text-align: left; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>GradeBot</h1>
+    <p>Rubric-based grading of short answers</p>
+    <span id="health">checking…</span>
+  </header>
+
+  <section class="stats" id="stats"></section>
+
+  <div class="toolbar">
+    <label for="filter">Question</label>
+    <select id="filter"><option value="">All questions</option></select>
+    <button class="primary" id="grade-all">Grade all ungraded</button>
+    <span id="message" role="status"></span>
+    <span class="spacer"></span>
+    <button id="open-question">Add question</button>
+    <button id="open-answer">Add student answer</button>
+  </div>
+
+  <div id="questions"></div>
+</main>
+
+<dialog id="question-dialog">
+  <form id="question-form">
+    <h2>Add question</h2>
+    <label for="q-text">Question</label>
+    <input id="q-text" name="text" required maxlength="500" placeholder="Why is the sky blue?">
+    <label for="q-rubric">Rubric</label>
+    <div class="hint">One line per point, each starting with "-" and ending with its marks in
+      brackets. The marks should add up to the maximum.</div>
+    <textarea id="q-rubric" name="rubric" rows="4" required
+      placeholder="- Sunlight is scattered by the atmosphere (2 marks)&#10;- Blue light scatters the most (1 mark)"></textarea>
+    <label for="q-max">Maximum marks</label>
+    <input id="q-max" name="max_marks" type="number" min="0.5" max="999" step="0.5" required placeholder="3">
+    <div class="error" role="alert"></div>
+    <div class="buttons">
+      <button type="button" data-close>Cancel</button>
+      <button type="submit" class="primary">Save question</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="answer-dialog">
+  <form id="answer-form">
+    <h2>Add student answer</h2>
+    <label for="a-question">Question</label>
+    <select id="a-question" name="question_id" required></select>
+    <label for="a-student">Student ID</label>
+    <input id="a-student" name="student_id" required maxlength="100" placeholder="stu-005">
+    <label for="a-answer">Answer</label>
+    <div class="hint">Can be left empty to record a blank hand-in.</div>
+    <textarea id="a-answer" name="answer" rows="5" maxlength="20000"></textarea>
+    <div class="error" role="alert"></div>
+    <div class="buttons">
+      <button type="button" data-close>Cancel</button>
+      <button type="submit" class="primary">Save answer</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+// Student answers are untrusted text. Everything is rendered with textContent / createElement,
+// never innerHTML, so an answer containing markup is shown as text and cannot run as script.
+const $ = (id) => document.getElementById(id);
+
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+const num = (n) => Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 });
+let questions = [];
+let submissions = [];
+
+async function api(path, options) {
+  const response = await fetch(path, options);
+  // 502 = grading failed after all attempts; the body is still the stored (failed) grade record.
+  if (!response.ok && response.status !== 502) {
+    let detail = `${options?.method || "GET"} ${path} returned ${response.status}`;
+    try {
+      const body = await response.json();
+      if (typeof body.detail === "string") detail = body.detail;
+      // FastAPI validation errors: [{loc: ["body", "max_marks"], msg: "..."}]
+      else if (Array.isArray(body.detail)) detail = body.detail.map((e) => `${e.loc.at(-1)}: ${e.msg}`).join("; ");
+    } catch { /* not JSON: keep the generic message */ }
+    throw new Error(detail);
+  }
+  return response.json();
+}
+
+const postJson = (path, data) =>
+  api(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+
+async function checkHealth() {
+  try {
+    await api("/health");
+    $("health").textContent = "API and database connected";
+    $("health").className = "ok";
+  } catch {
+    $("health").textContent = "API or database unavailable";
+    $("health").className = "down";
+  }
+}
+
+async function load() {
+  [questions, submissions] = await Promise.all([api("/questions"), api("/submissions")]);
+  renderFilter();
+  render();
+}
+
+function renderFilter() {
+  const select = $("filter");
+  const current = select.value;
+  select.replaceChildren(new Option("All questions", ""));
+  for (const q of questions) select.add(new Option(`Q${q.id}. ${q.text}`, q.id));
+  select.value = current;
+  $("a-question").replaceChildren(...questions.map((q) => new Option(`Q${q.id}. ${q.text}`, q.id)));
+  $("open-answer").disabled = questions.length === 0;
+}
+
+function visible() {
+  const id = $("filter").value;
+  return id ? submissions.filter((s) => String(s.question_id) === id) : submissions;
+}
+
+function renderStats(items) {
+  const graded = items.filter((s) => s.grade?.status === "success");
+  const failed = items.filter((s) => s.grade?.status === "failed");
+  const percent = graded.length
+    ? Math.round((100 * graded.reduce((sum, s) => sum + s.grade.score / s.max_marks, 0)) / graded.length) + "%"
+    : "–";
+  const stats = [
+    [items.length, "Submissions"],
+    [graded.length, "Graded"],
+    [items.length - graded.length - failed.length, "Not graded yet"],
+    [failed.length, "Failed, needs review"],
+    [percent, "Average score"],
+  ];
+  $("stats").replaceChildren(...stats.map(([value, label]) => {
+    const card = el("div", "stat");
+    card.append(el("b", "", String(value)), el("span", "", label));
+    return card;
+  }));
+}
+
+function resultCell(s) {
+  const cell = el("div");
+  const grade = s.grade;
+  if (!grade) {
+    cell.append(el("span", "badge", "Not graded"));
+  } else if (grade.status === "failed") {
+    cell.append(el("span", "badge bad", "Failed"));
+    cell.append(el("div", "feedback", "No score was recorded. A teacher should review this answer."));
+  } else {
+    const ratio = grade.score / s.max_marks;
+    const tone = ratio >= 0.8 ? "good" : ratio >= 0.4 ? "mid" : "bad";
+    cell.append(el("span", `badge ${tone}`, `${num(grade.score)} / ${num(s.max_marks)}`));
+    cell.append(el("div", "feedback", grade.feedback));
+  }
+  if (grade) {
+    const calls = grade.attempts === 0 ? "no LLM call" : `${grade.attempts} LLM call${grade.attempts > 1 ? "s" : ""}`;
+    cell.append(el("div", "audit", `${grade.model} · ${grade.prompt_version} · ${calls} · ${grade.latency_ms} ms`));
+  }
+  return cell;
+}
+
+function answerCell(s) {
+  const cell = el("div");
+  if (!s.answer.trim()) {
+    cell.append(el("div", "answer empty", "(empty answer)"));
+    return cell;
+  }
+  const text = el("div", "answer clamped", s.answer);
+  cell.append(text);
+  if (s.answer.length > 280) {
+    const toggle = el("button", "more", `Show all ${s.answer.length.toLocaleString()} characters`);
+    toggle.addEventListener("click", () => {
+      const clamped = text.classList.toggle("clamped");
+      toggle.textContent = clamped ? `Show all ${s.answer.length.toLocaleString()} characters` : "Show less";
+    });
+    cell.append(toggle);
+  }
+  return cell;
+}
+
+function actionCell(s) {
+  const cell = el("div", "action");
+  const status = s.grade?.status;
+  const button = el("button", "", status === "success" ? "Graded" : status === "failed" ? "Retry" : "Grade");
+  // A successful grade is final for this prompt version; the API would return the same row.
+  button.disabled = status === "success";
+  button.addEventListener("click", () => grade([s], button));
+  cell.append(button);
+  return cell;
+}
+
+function render() {
+  const items = visible();
+  renderStats(items);
+
+  const filter = $("filter").value;
+  const cards = [];
+  for (const q of questions) {
+    if (filter && String(q.id) !== filter) continue;
+    const rows = items.filter((s) => s.question_id === q.id);
+    const card = el("section", "question");
+    const head = el("div", "head");
+    const top = el("div", "head-row");
+    top.append(el("h2", "", `Q${q.id}. ${q.text}`));
+    const add = el("button", "", "Add answer");
+    add.addEventListener("click", () => openAnswerDialog(q.id));
+    top.append(add);
+    head.append(top);
+    head.append(el("div", "meta", `Maximum marks: ${num(q.max_marks)} · ${rows.length} submission${rows.length === 1 ? "" : "s"}`));
+    const rubric = el("details");
+    rubric.append(el("summary", "", "Rubric"), el("pre", "", q.rubric));
+    head.append(rubric);
+    card.append(head);
+    if (rows.length === 0) card.append(el("div", "empty-note", "No answers submitted yet."));
+
+    for (const s of rows) {
+      const row = el("div", "row");
+      const student = el("div", "student", s.student_id);
+      student.append(el("small", "", `Submission ${s.id}`));
+      row.append(student, answerCell(s), resultCell(s), actionCell(s));
+      card.append(row);
+    }
+    cards.push(card);
+  }
+  $("questions").replaceChildren(...cards);
+  $("grade-all").disabled = !items.some((s) => s.grade?.status !== "success");
+}
+
+async function grade(targets, button) {
+  $("message").textContent = "";
+  if (button) { button.disabled = true; button.textContent = "Grading…"; }
+  $("grade-all").disabled = true;
+  try {
+    for (const s of targets) {
+      await api(`/submissions/${s.id}/grade`, { method: "POST" });
+    }
+  } catch (error) {
+    $("message").textContent = error.message;
+  }
+  $("grade-all").textContent = "Grade all ungraded";
+  await load().catch((error) => { $("message").textContent = error.message; });
+}
+
+function openAnswerDialog(questionId) {
+  $("answer-form").reset();
+  $("answer-form").querySelector(".error").textContent = "";
+  if (questionId) $("a-question").value = questionId;
+  $("answer-dialog").showModal();
+}
+
+function wireForm(formId, dialogId, submit) {
+  const form = $(formId);
+  const dialog = $(dialogId);
+  const error = form.querySelector(".error");
+  form.querySelector("[data-close]").addEventListener("click", () => dialog.close());
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    error.textContent = "";
+    const save = form.querySelector("[type=submit]");
+    save.disabled = true;
+    try {
+      await submit(Object.fromEntries(new FormData(form)));
+      dialog.close();
+      await load();
+    } catch (problem) {
+      error.textContent = problem.message;
+    } finally {
+      save.disabled = false;
+    }
+  });
+}
+
+wireForm("question-form", "question-dialog", (data) =>
+  postJson("/questions", { text: data.text, rubric: data.rubric, max_marks: Number(data.max_marks) }));
+wireForm("answer-form", "answer-dialog", (data) =>
+  postJson("/submissions", { question_id: Number(data.question_id), student_id: data.student_id, answer: data.answer }));
+
+$("open-question").addEventListener("click", () => {
+  $("question-form").reset();
+  $("question-form").querySelector(".error").textContent = "";
+  $("question-dialog").showModal();
+});
+$("open-answer").addEventListener("click", () => openAnswerDialog($("filter").value));
+$("filter").addEventListener("change", render);
+$("grade-all").addEventListener("click", () =>
+  grade(visible().filter((s) => s.grade?.status !== "success"), $("grade-all")));
+
+checkHealth();
+load().catch((error) => { $("message").textContent = error.message; });
+</script>
+</body>
+</html>
