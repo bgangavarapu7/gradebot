@@ -15,7 +15,8 @@ Python 3.13 · FastAPI · PostgreSQL 16 · deterministic `FakeLLM` (no API key n
 | Tests | **62 passed** (`pytest -q`, 4 s) against a local PostgreSQL 16.2. |
 | Eval harness | Done. **5/5 pass, 100%** with the fake; exits 1 below the threshold. |
 | Lint | `ruff check .` and `ruff format --check .` clean. |
-| Dockerfile, docker-compose.yml, Makefile, CI workflow | **Written but never executed.** The machine this was built on has no Docker and no `make`. Treat them as reviewed-by-eye only. |
+| CI workflow | **Runs on GitHub Actions and passes**: install, lint, tests against a `postgres:16` service container, eval gate. First run: https://github.com/bgangavarapu7/gradebot/actions/runs/38243982482 (34 s). |
+| Dockerfile, docker-compose.yml, Makefile | **Written but never executed.** The machine this was built on has no Docker and no `make`. Treat them as reviewed-by-eye only. |
 | Real LLM provider (STRETCH) | Not implemented. |
 | Empty-answer short-circuit (STRETCH), API tests (STRETCH) | Done. |
 

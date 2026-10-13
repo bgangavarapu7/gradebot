@@ -256,6 +256,9 @@ function resultCell(s) {
   if (grade) {
     const calls = grade.attempts === 0 ? "no LLM call" : `${grade.attempts} LLM call${grade.attempts > 1 ? "s" : ""}`;
     cell.append(el("div", "audit", `${grade.model} · ${grade.prompt_version} · ${calls} · ${grade.latency_ms} ms`));
+    // Shown in the viewer's own time zone, whatever zone the server reports.
+    const when = new Date(grade.created_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "medium" });
+    cell.append(el("div", "audit", `Graded ${when}`));
   }
   return cell;
 }

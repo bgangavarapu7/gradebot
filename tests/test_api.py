@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -135,3 +137,13 @@ def test_create_submission_rejects_a_blank_student_id(client):
     question_id = client.post("/questions", json=QUESTION).json()["id"]
     body = {"question_id": question_id, "student_id": "  ", "answer": "x"}
     assert client.post("/submissions", json=body).status_code == 422
+
+
+def test_timestamps_are_reported_in_system_local_time(client, make_submission):
+    client.llm.script = [VALID]
+    body = client.post(f"/submissions/{make_submission()}/grade").json()
+
+    created_at = datetime.fromisoformat(body["created_at"])
+    now = datetime.now().astimezone()
+    assert created_at.utcoffset() == now.utcoffset()  # written with the system's UTC offset
+    assert abs(now - created_at) < timedelta(minutes=1)  # and still the correct instant
